@@ -1,0 +1,8 @@
+#!/bin/bash
+rm main.out
+clang++ -v -g ./*.cpp ./*.c -L./FFmpeg/lib -lavcodec -lavformat  -lavutil  -I ./FFmpeg/include  -o main.out
+# otool -L main.out
+# install_name_tool -change host/lib/libavcodec.58.dylib @executable_path/lib/libavcodec.dylib main.out
+# install_name_tool -change host/lib/libavutil.56.dylib @executable_path/lib/libavutil.dylib main.out
+# install_name_tool -change host/lib/libavformat.58.dylib @executable_path/lib/libavformat.dylib main.out
+# otool -L main.out
