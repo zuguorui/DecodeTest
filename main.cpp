@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
+#include <string>
+#include <map>
 
 extern "C"{
 #include "libavcodec/avcodec.h"
@@ -16,53 +18,14 @@ extern "C"{
 
 using namespace std;
 
-static void decode(AVCodecContext *codecContext, AVPacket *packet, AVFrame *frame, FILE *outFile)
-{
-    int ret, data_size;
 
-    //send the packet with the compressed data to the decoder
-    ret = avcodec_send_packet(codecContext, packet);
-    if(ret < 0)
-    {
-        cout << "Error submitting the packet to the decoder" << endl;
-        exit(1);
-    }
-
-    //read all the output frames (in general there may be any number of them)
-    while(ret >= 0)
-    {
-        ret = avcodec_receive_frame(codecContext, frame);
-        if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-        {
-            return;
-        }else if(ret < 0)
-        {
-            fprintf(stderr, "Error during decoding\n");
-            exit(1);
-        }
-        data_size = av_get_bytes_per_sample(codecContext->sample_fmt);
-        if(data_size < 0)
-        {
-            //This should not occur, checking just for paranoia
-            fprintf(stderr, "Failed to calciulate data size");
-            exit(1);
-        }
-        for(int i = 0; i < frame->nb_samples; i++)
-        {
-            for(int ch = 0; ch < codecContext->channels; ch++)
-            {
-                fwrite(frame->data[ch] + data_size * i, 1, data_size, outFile);
-            }
-        }
-    }
-}
 
 int main()
 {
 
     avcodec_register_all();
-    const char *inputFileName = "./fumika - Endless Road.mp3";
-    const char *outputFileName = "./Endless Road.pcm";
+    const char *inputFileName = "./宋冬野-莉莉安.mp3";
+    const char *outputFileName = "./output.pcm";
     const AVCodec *codec;
     AVCodecContext *codecContext = NULL;
     AVCodecParserContext *parserContext = NULL;
@@ -94,6 +57,7 @@ int main()
     }
 
     formatContext = avformat_alloc_context();
+	
     if(avformat_open_input(&formatContext, inputFileName, NULL, NULL) != 0)
     {
         fprintf(stderr, "Couldn't open input stream\n");
@@ -106,7 +70,33 @@ int main()
         exit(1);
     }
 
-    av_dump_format(formatContext, 0, inputFileName, false);
+
+	AVDictionaryEntry *tag = NULL;
+	// map<string, string> infoMap;
+	cout << "media info:" << endl;
+	while(tag = av_dict_get(formatContext->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))
+	{
+		string keyStr = tag->key;
+		string valueStr = tag->value;
+		// infoMap.insert(keyStr, valueStr);
+		cout << keyStr << ": " << valueStr << endl;
+	}
+
+    for(int i = 0; i < formatContext->nb_streams; i++)
+	{
+		if(formatContext->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC)
+		{
+			printf("pic index: %d\n", i);
+			AVPacket p = formatContext->streams[i]->attached_pic;
+			FILE *picFile = fopen("./picture.jpeg", "wb");
+			fwrite(p.data, sizeof(uint8_t), p.size, picFile);
+			fflush(picFile);
+			fclose(picFile);
+			picFile = NULL;
+			break;
+
+		}
+	}
 
 
     int audioStream = -1;
@@ -118,6 +108,8 @@ int main()
             break;
         }
     }
+
+	printf("Audio stream index = %d\n", audioStream);
 
     if(audioStream == -1)
     {
@@ -176,9 +168,11 @@ int main()
 
     uint8_t *out_buffer = (uint8_t *)av_malloc(MAX_AUDIO_FRAME_SIZE * 2);
 
-    packet = av_packet_alloc();
+    packet = (AVPacket *)av_malloc(sizeof(AVPacket));
     av_init_packet(packet);
+
     frame = av_frame_alloc();
+
     int gotPicture;
 
 
@@ -188,25 +182,47 @@ int main()
     au_convert_ctx = swr_alloc_set_opts(au_convert_ctx, out_channel_layout, out_sample_fmt, out_sample_rate, in_channel_layout, codecContext->sample_fmt, codecContext->sample_rate, 0, NULL);
     swr_init(au_convert_ctx);
 
+	int skipCount = 100;
+	int currentSkip = 0;
 
-    while(av_read_frame(formatContext, packet) == 0)
+    while(av_read_frame(formatContext, packet) >= 0)
     {
-        if(packet->size > 0 && packet->stream_index == audioStream)
+		// printf("Packet stream index = %d\n", packet->stream_index);
+        if(packet->stream_index == audioStream)
         {
-            ret = avcodec_decode_audio4(codecContext, frame, &gotPicture, packet);
-            if(ret < 0)
-            {
-                fprintf(stderr, "Error in decoding audio frame\n");
-                exit(1);
-            }
-            if(gotPicture > 0)
-            {
-                swr_convert(au_convert_ctx, &out_buffer, MAX_AUDIO_FRAME_SIZE, (const uint8_t**)frame->data, frame->nb_samples);
-                printf("pts: %lld\t packet size: %d\n", index, packet->pts, packet->size);
-                printf("frame samples: %d\n", frame->nb_samples);
-                fwrite(out_buffer, sizeof(uint8_t), out_buffer_size, out);
+			// if(currentSkip < skipCount)
+			// {
+			// 	currentSkip++;
+			// 	continue;
+			// }
+			if(avcodec_send_packet(codecContext, packet))
+			{
+				continue;
+			}
+
+			if(avcodec_receive_frame(codecContext, frame))
+			{
+				continue;
+			}
+
+			swr_convert(au_convert_ctx, &out_buffer, MAX_AUDIO_FRAME_SIZE, (const uint8_t**)frame->data, frame->nb_samples);
+			// printf("frame samples: %d\n", frame->nb_samples);
+			fwrite(out_buffer, sizeof(uint8_t), out_buffer_size, out);
+
+            // ret = avcodec_decode_audio4(codecContext, frame, &gotPicture, packet);
+            // if(ret < 0)
+            // {
+            //     fprintf(stderr, "Error in decoding audio frame\n");
+            //     exit(1);
+            // }
+            // if(gotPicture > 0)
+            // {
+            //     swr_convert(au_convert_ctx, &out_buffer, MAX_AUDIO_FRAME_SIZE, (const uint8_t**)frame->data, frame->nb_samples);
+            //     // printf("pts: %lld\t packet size: %d\n", packet->pts, packet->size);
+            //     // printf("frame samples: %d\n", frame->nb_samples);
+            //     fwrite(out_buffer, sizeof(uint8_t), out_buffer_size, out);
                 
-            }
+            // }
         }
         av_free_packet(packet);
     }
@@ -223,3 +239,5 @@ int main()
 
     return 0;
 }
+
+ 
