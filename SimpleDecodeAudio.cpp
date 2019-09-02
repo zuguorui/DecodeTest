@@ -13,7 +13,7 @@ extern "C"{
 #define AUDIO_REFILL_THRESH 4096
 #define MAX_AUDIO_FRAME_SIZE 119200
 
-void decodeAudio(const char* inputFileName, const char* outputFileName)
+void SimpleDecodeAudio::decodeAudio(const char* inputFileName, const char* outputFileName)
 {
     avcodec_register_all();
     const AVCodec *codec;

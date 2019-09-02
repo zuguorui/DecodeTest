@@ -7,6 +7,11 @@
 
 using namespace std;
 
-void decodeAudio(const char* inputFileName, const char* outputFileName);
+class SimpleDecodeAudio{
+public:
+    static void decodeAudio(const char* inputFileName, const char* outputFileName);
+};
+
+
 
 #endif

@@ -7,6 +7,9 @@
 
 using namespace std;
 
-void decodeAudio(const char *inputFileName, const char *outputFileName);
+class OfficalDecodeAudio{
+public:
+    static void decodeAudio(const char *inputFileName, const char *outputFileName);
+};
 
 #endif
