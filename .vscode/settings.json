@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "map": "cpp"
+        "map": "cpp",
+        "sdl.h": "c",
+        "config.h": "c"
     }
 }
