@@ -24,7 +24,7 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
 {
     int err = 0;
     AVFormatContext *formatContext = NULL;
-    AVInputFormat *inputFormat = av_find_input_format(inputFileName);
+    AVInputFormat *inputFormat = av_find_input_format("mp3");
 
     if(!inputFormat)
     {
