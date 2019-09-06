@@ -362,6 +362,7 @@ if (scan_all_pmts_set)
 5. av_format_inject_global_side_data(ic)，目前不知道有什么用。
 6. 如果输入参数中有`-find_stream_info`，就查找stream的详细信息，但我试了之后发现输出好像并没什么区别。
 7. 如果输入参数中有`-ss`，这个值会被解析到`start_time`，那么就会从这个地方开始解码。需要注意的是AVStream也会有个起始时间，这个值在AVFormatContext中，也就是最终的起始时间是`start_time + ic->start_time`。然后调用`avformat_seek_file(ic, -1, INT64_MIN, timestamp, INT64_MAX, 0)`来跳转。
-8. 
+8. 如果在命令行中指定了`-status`参数，则`show_status`不为0，会调用`av_dump_format()`来打印媒体信息。
+9. 
 
 
