@@ -363,6 +363,62 @@ if (scan_all_pmts_set)
 6. 如果输入参数中有`-find_stream_info`，就查找stream的详细信息，但我试了之后发现输出好像并没什么区别。
 7. 如果输入参数中有`-ss`，这个值会被解析到`start_time`，那么就会从这个地方开始解码。需要注意的是AVStream也会有个起始时间，这个值在AVFormatContext中，也就是最终的起始时间是`start_time + ic->start_time`。然后调用`avformat_seek_file(ic, -1, INT64_MIN, timestamp, INT64_MAX, 0)`来跳转。
 8. 如果在命令行中指定了`-status`参数，则`show_status`不为0，会调用`av_dump_format()`来打印媒体信息。
-9. 
+9. 如果在参数中指定了ast、vst以及sst，它们是选择期望的流，这样的话wanted_stream_spec就会有值，然后与st_index做一些运算。我们按照最简单直接输入文件名播放的行为，此处的wanted_stream_spec是没有值的，先略过。因此接下来st_index的值都为-1。
+10. 如果允许video，调用
+```C
+st_index[AVMEDIA_TYPE_VIDEO] =
+            av_find_best_stream(ic, AVMEDIA_TYPE_VIDEO,
+                                st_index[AVMEDIA_TYPE_VIDEO], -1, NULL, 0);
+```
+寻找video的stream index。注意此时st_index[AVMEDIA_TYPE_VIDEO] = -1。
+11. 如果允许audio，调用
+```C
+st_index[AVMEDIA_TYPE_AUDIO] =
+            av_find_best_stream(ic, AVMEDIA_TYPE_AUDIO,
+                                st_index[AVMEDIA_TYPE_AUDIO],
+                                st_index[AVMEDIA_TYPE_VIDEO],
+                                NULL, 0);
+```
+寻找audio的stream index，其中st_index[AVMEDIA_TYPE_AUDIO] = -1，st_index[AVMEDIA_TYPE_VIDEO]在上一步video的步骤中已经获得。
+12. 如果同时允许video和subsitle，按照同样的步骤查找subtitle的stream index。
+```C
+st_index[AVMEDIA_TYPE_SUBTITLE] =
+            av_find_best_stream(ic, AVMEDIA_TYPE_SUBTITLE,
+                                st_index[AVMEDIA_TYPE_SUBTITLE],
+                                (st_index[AVMEDIA_TYPE_AUDIO] >= 0 ?
+                                 st_index[AVMEDIA_TYPE_AUDIO] :
+                                 st_index[AVMEDIA_TYPE_VIDEO]),
+                                NULL, 0);
+```
+13. 将show_mode赋值给is->show_mode。
+14. 如果输入流中包含video，那么就计算video的宽高，设置SDL的窗口大小。
+15. 如果输入流中包含audio，调用`stream_component_open(is, st_index[AVMEDIA_TYPE_AUDIO])`打开音频流。该函数如果成功打开对应的stream，那么也会将stream index赋值给对应的is->audio_stream、is->video_stream和is->subtitle_stream。
+16. 如果输入流中包含video，调用`stream_component_open(is, st_index[AVMEDIA_TYPE_VIDEO])`打开视频流。如果输入参数中没有指定show_mode，那么如果成功打开视频流，就使is->show_mode = SHOW_MODE_VIDEO，显示流中的视频，通常这个在播放包含专辑图片的音频文件时，就会导致ffplay打开窗口显示专辑封面；如果没有成功打开视频流，就使is->show_mode = SHOW_MODE_RDFT，显示音频的频谱（DFT是离散傅立叶变换）。
+17. 如果输入流中包含subtitle，用同样的方式打开subtitle流。
+18. 如果video和audio都没有成功打开，就退出。
+19. 接下来进入循环，这个循环一直读取文件并将读取的AVPacket放到is中。非常重要的一点，要检查读取处的packet是否是在播放范围。这个播放范围有两种，一种是用户在参数中指定的播放起始点，另一种是stream自身的播放起始点。如果在播放范围中，就放入is的queue中，否则弃用。
 
+## 2.10 stream_component_open
+
+完整声明：
+```C
+/* open a given stream. Return 0 if OK */
+static int stream_component_open(VideoState *is, int stream_index)
+```
+
+打开一个stream，并解码。
+
+1. 调用`avcodec_alloc_context3(NULL)`新建一个AVCodecContext *avctx，调用`avcodec_parameters_to_context(avctx, ic->streams[stream_index]->codecpar)`向avctx中设置参数。最后调用`codec = avcodec_find_decoder(avctx->codec_id)`获取解码器。
+2. 根据avctx->codec_type，将函数参数中的stream_index设置到is->last_audio_stream、is->last_subtitle_stream及is->last_video_stream。在运行ffplay时指定了-scodec、-acodec或-vcodec传入了解码器名称，则表明用户想强制使用一个解码器。此时为force_codec_name为用户指定的解码器名称。并调用`codec = avcodec_find_decoder_by_name(forced_codec_name)`来查找解码器。
+3. 调用`avcodec_open2(avctx, codec, &opts)`打开解码器，opts为前面的一堆操作，不知道有什么用。
+4. `ic->streams[stream_index]->discard = AVDISCARD_DEFAULT`
+5. 如果当前流是音频流，获取采样率、声道数以及channel_layout，这个函数用来设置SDL的音频参数，它会找到输入与输出都兼容的音频参数。然后调用`decoder_init(&is->auddec, avctx, &is->audioq, is->continue_read_thread)`初始化解码器，它的作用起始就是初始化Decoder，也就是参数中的is->auddec。最后调用`decoder_start(&is->auddec, audio_thread, "audio_decoder", is)`开始解码，这个函数中，将audio_thread放在单独的线程中运行。
+6. 对于video和subtitle都是和5一样的步骤。
+
+## 2.11 audio_thread
+
+完整声明：
+```C
+static int audio_thread(void *arg)
+```
 

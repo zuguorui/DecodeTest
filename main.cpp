@@ -15,7 +15,8 @@ int main()
     // const char* in = "./安来宁-我的名字叫做安.flac";
     const char* in = "./Mili - RTRT.mp3";
     const char* out = "./output.pcm";
-    OfficalDecodeAudio::decodeAudio(in, out);
+    // OfficalDecodeAudio::decodeAudio(in, out);
+    SimpleDecodeAudio::decodeAudio(in, out);
     
 
 

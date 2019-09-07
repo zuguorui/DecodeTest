@@ -179,16 +179,19 @@ void SimpleDecodeAudio::decodeAudio(const char* inputFileName, const char* outpu
 	int skipCount = 100;
 	int currentSkip = 0;
 
+    int64_t stream_start_time = formatContext->streams[audioStream]->start_time;
+    int64_t pkt_ts = 0;
+
     while(av_read_frame(formatContext, packet) >= 0)
     {
 		// printf("Packet stream index = %d\n", packet->stream_index);
         if(packet->stream_index == audioStream)
         {
-			// if(currentSkip < skipCount)
-			// {
-			// 	currentSkip++;
-			// 	continue;
-			// }
+			pkt_ts = packet->pts == AV_NOPTS_VALUE ? packet->dts : packet->pts;
+            if(pkt_ts < stream_start_time)
+            {
+                continue;
+            }
 			if(avcodec_send_packet(codecContext, packet))
 			{
 				continue;
@@ -218,7 +221,7 @@ void SimpleDecodeAudio::decodeAudio(const char* inputFileName, const char* outpu
                 
             // }
         }
-        av_free_packet(packet);
+        // av_free_packet(packet);
     }
     
 
