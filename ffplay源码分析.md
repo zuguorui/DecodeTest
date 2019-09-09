@@ -396,7 +396,7 @@ st_index[AVMEDIA_TYPE_SUBTITLE] =
 16. 如果输入流中包含video，调用`stream_component_open(is, st_index[AVMEDIA_TYPE_VIDEO])`打开视频流。如果输入参数中没有指定show_mode，那么如果成功打开视频流，就使is->show_mode = SHOW_MODE_VIDEO，显示流中的视频，通常这个在播放包含专辑图片的音频文件时，就会导致ffplay打开窗口显示专辑封面；如果没有成功打开视频流，就使is->show_mode = SHOW_MODE_RDFT，显示音频的频谱（DFT是离散傅立叶变换）。
 17. 如果输入流中包含subtitle，用同样的方式打开subtitle流。
 18. 如果video和audio都没有成功打开，就退出。
-19. 接下来进入循环，这个循环一直读取文件并将读取的AVPacket放到is中。非常重要的一点，要检查读取处的packet是否是在播放范围。这个播放范围有两种，一种是用户在参数中指定的播放起始点，另一种是stream自身的播放起始点。如果在播放范围中，就放入is的queue中，否则弃用。
+19. 接下来进入循环，这个循环一直读取文件并将读取的AVPacket放到is中。非常重要的一点，要检查读取处的packet是否是在播放范围。这个播放范围有两种，一种是用户在参数中指定的播放起始点，另一种是stream自身的播放起始点。如果在播放范围中，就放入is的queue中，否则弃用它。如果输入的video stream的disposition是AV_DISPOSITION_ATTACHED_PIC，那它是音频文件附带的图片，要显示出来。
 
 ## 2.10 stream_component_open
 
@@ -421,4 +421,15 @@ static int stream_component_open(VideoState *is, int stream_index)
 ```C
 static int audio_thread(void *arg)
 ```
+主要是调用`decoder_decode_frame(&is->auddec, frame, NULL)`方法进行解码，获取解码后的frame放入is中对应的FrameQueue。
+
+## 2.12 decoder_decode_frame
+
+完整声明：
+```C
+static int decoder_decode_frame(Decoder *d, AVFrame *frame, AVSubtitle *sub)
+```
+
+主要调用`avcodec_send_packet()`和`avcodec_receive_frame()`来解码数据。
+
 

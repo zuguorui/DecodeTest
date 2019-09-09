@@ -12,11 +12,11 @@ using namespace std;
 
 int main()
 {
-    // const char* in = "./安来宁-我的名字叫做安.flac";
-    const char* in = "./Mili - RTRT.mp3";
+    // const char* in = "./audio_file/Mili - RTRT.mp3";
+    const char* in = "./audio_file/张靓颖,王铮亮-只是没有如果.flac";
     const char* out = "./output.pcm";
-    // OfficalDecodeAudio::decodeAudio(in, out);
-    SimpleDecodeAudio::decodeAudio(in, out);
+    OfficalDecodeAudio::decodeAudio(in, out);
+    // SimpleDecodeAudio::decodeAudio(in, out);
     
 
 

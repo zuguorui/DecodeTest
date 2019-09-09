@@ -176,7 +176,7 @@ void SimpleDecodeAudio::decodeAudio(const char* inputFileName, const char* outpu
     au_convert_ctx = swr_alloc_set_opts(au_convert_ctx, out_channel_layout, out_sample_fmt, out_sample_rate, in_channel_layout, codecContext->sample_fmt, codecContext->sample_rate, 0, NULL);
     swr_init(au_convert_ctx);
 
-	int skipCount = 100;
+	
 	int currentSkip = 0;
 
     int64_t stream_start_time = formatContext->streams[audioStream]->start_time;
@@ -206,25 +206,13 @@ void SimpleDecodeAudio::decodeAudio(const char* inputFileName, const char* outpu
 			// printf("frame samples: %d\n", frame->nb_samples);
 			fwrite(out_buffer, sizeof(uint8_t), out_buffer_size, out);
 
-            // ret = avcodec_decode_audio4(codecContext, frame, &gotPicture, packet);
-            // if(ret < 0)
-            // {
-            //     fprintf(stderr, "Error in decoding audio frame\n");
-            //     exit(1);
-            // }
-            // if(gotPicture > 0)
-            // {
-            //     swr_convert(au_convert_ctx, &out_buffer, MAX_AUDIO_FRAME_SIZE, (const uint8_t**)frame->data, frame->nb_samples);
-            //     // printf("pts: %lld\t packet size: %d\n", packet->pts, packet->size);
-            //     // printf("frame samples: %d\n", frame->nb_samples);
-            //     fwrite(out_buffer, sizeof(uint8_t), out_buffer_size, out);
-                
-            // }
+            
         }
-        // av_free_packet(packet);
+        av_packet_unref(packet);
+        
     }
     
-
+    av_free_packet(packet);
     swr_free(&au_convert_ctx);
     fclose(out);
     av_free(out_buffer);

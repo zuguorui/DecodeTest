@@ -23,38 +23,38 @@ extern "C"
 void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outputFileName)
 {
     int err = 0;
-    AVFormatContext *formatContext = NULL;
-    AVInputFormat *inputFormat = av_find_input_format("mp3");
+    AVFormatContext *formatCtx = NULL;
+    
 
-    if(!inputFormat)
-    {
-        fprintf(stderr, "Can't detect the format of input file\n");
-        // exit(1);
-    }
-
-    formatContext = avformat_alloc_context();
-    if(!formatContext)
+    formatCtx = avformat_alloc_context();
+    if(!formatCtx)
     {
         fprintf(stderr, "Can't allocate context\n");
         exit(1);
     }
 
-    err = avformat_open_input(&formatContext, inputFileName, NULL, NULL);
+    err = avformat_open_input(&formatCtx, inputFileName, NULL, NULL);
     if(err < 0)
     {
         fprintf(stderr, "Can't open input file\n");
         exit(1);
     }
 
-    av_format_inject_global_side_data(formatContext);
+    if(avformat_find_stream_info(formatCtx, NULL) < 0)
+    {
+        fprintf(stderr, "Error when find stream info\n");
+        exit(1);
+    }
 
-    av_dump_format(formatContext, 0, inputFileName, 0);
+    av_format_inject_global_side_data(formatCtx);
+
+    av_dump_format(formatCtx, 0, inputFileName, 0);
 
     int audioIndex = -1;
 
-    for(int i = 0; i < formatContext->nb_streams; i++)
+    for(int i = 0; i < formatCtx->nb_streams; i++)
     {
-        AVStream *st = formatContext->streams[i];
+        AVStream *st = formatCtx->streams[i];
         AVMediaType type = st->codecpar->codec_type;
         if(type == AVMEDIA_TYPE_AUDIO)
         {
@@ -70,13 +70,7 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
 
     printf("audio index is %d\n", audioIndex);
 
-    audioIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, audioIndex, -1, NULL, 0);
-
-    if(audioIndex < 0)
-    {
-        fprintf(stderr, "Can't find best audio stream\n");
-        exit(1);
-    }
+    
 
     AVCodecContext *codecCtx;
     AVCodec *codec;
@@ -91,29 +85,24 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
     int32_t out_sample_rate = 44100;
     int32_t out_channels = av_get_channel_layout_nb_channels(out_channel_layout);
     
-    codecCtx = avcodec_alloc_context3(NULL);
+    codecCtx = formatCtx->streams[audioIndex]->codec;
     if(!codecCtx)
     {
         fprintf(stderr, "Error when alloc CodecContext\n");
         exit(1);
     }
 
-    err = avcodec_parameters_to_context(codecCtx, formatContext->streams[audioIndex]->codecpar);
 
-    if(err < 0)
-    {
-        fprintf(stderr, "Failed set params to CodecContext\n");
-        exit(1);
-    }
-
-    codecCtx->pkt_timebase = formatContext->streams[audioIndex]->time_base;
 
     codec = avcodec_find_decoder(codecCtx->codec_id);
 
-    codecCtx->codec_id = codec->id;
-    codecCtx->flags2 |= AV_CODEC_FLAG2_FAST;
+    if(avcodec_open2(codecCtx, codec, NULL) < 0)
+    {
+        fprintf(stderr, "Error when open codec\n");
+        exit(1);
+    }
 
-    formatContext->streams[audioIndex]->discard = AVDISCARD_DEFAULT;
+    formatCtx->streams[audioIndex]->discard = AVDISCARD_DEFAULT;
 
     in_sample_rate = codecCtx->sample_rate;
     in_channels = codecCtx->channels;
