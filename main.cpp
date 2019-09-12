@@ -13,7 +13,7 @@ using namespace std;
 int main()
 {
     // const char* in = "./audio_file/Mili - RTRT.mp3";
-    const char* in = "./audio_file/Mili - RTRT.mp3";
+    const char* in = "./audio_file/BAAD - 君が好きだと叫びたい.aac";
     const char* out = "./output.pcm";
     OfficalDecodeAudio::decodeAudio(in, out);
     // SimpleDecodeAudio::decodeAudio(in, out);

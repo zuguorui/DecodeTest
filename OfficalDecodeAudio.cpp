@@ -40,6 +40,8 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
         exit(1);
     }
 
+    av_register_all();
+    
     int err = 0;
     AVFormatContext *formatCtx = NULL;
 
@@ -170,8 +172,8 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
         }
 
         pkt_pts = packet->pts;
-        // printf("presention time = %ld\n", pkt_pts);
-        if (pkt_pts == AV_NOPTS_VALUE || pkt_pts >= stream_start_time)
+        printf("presention time = %ld\n", pkt_pts);
+        if (pkt_pts >= stream_start_time)
         {
             int err2 = avcodec_send_packet(codecCtx, packet);
             if (err2 == AVERROR(EAGAIN))
@@ -191,7 +193,7 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
             }
             else if (err2 < 0)
             {
-                // printf("call avcodec_send_packet() returns %d\n", err2);
+                printf("call avcodec_send_packet() returns %d\n", err2);
             }
             else
             {
@@ -227,10 +229,21 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
                 {
                     int frameCount = swr_convert(convert_context, &out_buffer, MAX_FRAME_SIZE, (const uint8_t **)frame->data, frame->nb_samples);
                     fwrite(out_buffer, frameCount, out_channels * 2 * sizeof(uint8_t), out);
+                    while(1){
+                        frameCount = swr_convert(convert_context, &out_buffer, MAX_FRAME_SIZE, NULL, 0);
+                        if(frameCount > 0)
+                        {
+                            fwrite(out_buffer, frameCount, out_channels * 2 * sizeof(uint8_t), out);
+                        }else{
+                            break;
+                        }
+                    }
                 }
             }
         }
 
+        //If decode_state is NEED_READ_FIRST, we need to call avcodec_receive_frame() first, and then resend this packet to avcodec_send_packet, so we can't unref it and
+        // can't install new data by av_read_frame().
         if (decode_state != NEED_READ_FIRST)
         {
             av_packet_unref(packet);
@@ -239,13 +252,12 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
     
     }
     
-    avcodec_send_packet(codecCtx, NULL);
-    avcodec_flush_buffers(codecCtx);
-    while(avcodec_receive_frame(codecCtx, frame) >= 0)
-    {
-        int frameCount = swr_convert(convert_context, &out_buffer, MAX_FRAME_SIZE, (const uint8_t **)frame->data, frame->nb_samples);
-        fwrite(out_buffer, frameCount, out_channels * 2 * sizeof(uint8_t), out);
-    }
+    // avcodec_send_packet(codecCtx, NULL);
+    // while(avcodec_receive_frame(codecCtx, frame) >= 0)
+    // {
+    //     int frameCount = swr_convert(convert_context, &out_buffer, MAX_FRAME_SIZE, (const uint8_t **)frame->data, frame->nb_samples);
+    //     fwrite(out_buffer, frameCount, out_channels * 2 * sizeof(uint8_t), out);
+    // }
 
     fflush(out);
     fclose(out);
