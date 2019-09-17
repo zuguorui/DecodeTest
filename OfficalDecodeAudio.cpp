@@ -79,6 +79,16 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
         {
             audioIndex = i;
         }
+        if(st->disposition & AV_DISPOSITION_ATTACHED_PIC)
+        {
+            printf("pic index: %d\n", i);
+			AVPacket p = st->attached_pic;
+			FILE *picFile = fopen("./picture.jpeg", "wb");
+			fwrite(p.data, sizeof(uint8_t), p.size, picFile);
+			fflush(picFile);
+			fclose(picFile);
+			picFile = NULL;
+        }
     }
 
     if (audioIndex == -1)
@@ -252,12 +262,7 @@ void OfficalDecodeAudio::decodeAudio(const char *inputFileName, const char *outp
     
     }
     
-    // avcodec_send_packet(codecCtx, NULL);
-    // while(avcodec_receive_frame(codecCtx, frame) >= 0)
-    // {
-    //     int frameCount = swr_convert(convert_context, &out_buffer, MAX_FRAME_SIZE, (const uint8_t **)frame->data, frame->nb_samples);
-    //     fwrite(out_buffer, frameCount, out_channels * 2 * sizeof(uint8_t), out);
-    // }
+
 
     fflush(out);
     fclose(out);
