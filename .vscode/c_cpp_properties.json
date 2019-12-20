@@ -4,7 +4,13 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/local/include"
+                "/usr/local/include",
+                "/usr/local/include/libavformat",
+                "/usr/local/include/libavcodec",
+                "/usr/local/include/libavutil",
+                "/usr/local/include/libavdevice",
+                "/usr/local/include/libswresample",
+                "/usr/local/include/libswscale"
                 
             ],
             "defines": [],
@@ -13,7 +19,7 @@
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c11",
-            "cppStandard": "c++17",
+            "cppStandard": "c++11",
             "intelliSenseMode": "clang-x64"
         }
     ],
